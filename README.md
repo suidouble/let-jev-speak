@@ -19,8 +19,9 @@ vocab:   199 words → 207 options
 cost:    14 calls (1 route + 3 prior + 10 decode)
 ```
 
-**Try it: [t.me/let_jev_speak_bot](https://t.me/let_jev_speak_bot)** — send it a
-question and watch the answer assemble itself one word at a time. Built on
+**Watch it:** [demo video](https://youtu.be/IQ3tBl2cTvs) ·
+**Try it:** [t.me/let_jev_speak_bot](https://t.me/let_jev_speak_bot) — send the
+bot a question and watch the answer assemble itself one word at a time. Built on
 Telegram's serverless platform; source in [`tg_bot/`](tg_bot/).
 
 The model picks its own vocabulary: one `choice` call routes the question to one
