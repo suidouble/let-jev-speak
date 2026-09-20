@@ -157,10 +157,31 @@ assembling a vocabulary truncates from the tail.
 
 ## Tests
 
+Unit tests use the built-in `node:test` runner — no dependencies. They stub
+`fetch`, so they are offline and deterministic.
+
 ```bash
-npm run eval            # routing accuracy, routing benefit, vocabulary coverage
-npm run eval:coverage   # local, no API calls
-npm test                # API client smoke test
+npm test                 # 142 unit tests, no network
+npm run test:watch       # re-run on change
+npm run test:integration  # live API, needs TYPESAFE_API_KEY (skips without it)
+```
+
+| Suite | Covers |
+|---|---|
+| `test/typesafe.test.js` | Client construction, request shape, helpers, retry policy, error unwrapping |
+| `test/decoder.test.js` | Option building, the 255 ceiling, rendering, prior measurement, decode guards |
+| `test/vocabs.test.js` | Pack invariants, budget limits, and that each pack can say its own words |
+| `test/letjevspeak.test.js` | Credentials, getters, vocabulary assembly, routing, prior caching, accounting |
+| `test/integration/live.test.js` | Real API calls — shape and high-confidence judgements only |
+
+Separately, `router-eval.js` *measures* live behaviour rather than asserting on
+it — routing accuracy over a labelled set, and routed vs general vs deliberately
+wrong vocabularies. It costs real API calls:
+
+```bash
+npm run eval             # both measurements
+npm run eval:routing
+npm run eval:benefit
 ```
 
 ## License

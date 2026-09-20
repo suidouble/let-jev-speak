@@ -18,10 +18,12 @@
   },
   "scripts": {
     "ask": "node ask.js",
-    "test": "node test.js",
-    "test:dry": "node test.js --dry",
+    "test": "node --test test/*.test.js",
+    "test:watch": "node --test --watch test/*.test.js",
+    "test:integration": "node --test test/integration/*.test.js",
     "eval": "node router-eval.js",
     "eval:routing": "node router-eval.js --routing",
-    "eval:coverage": "node router-eval.js --coverage"
-  }
+    "eval:benefit": "node router-eval.js --benefit"
+  },
+  "license": "MIT"
 }

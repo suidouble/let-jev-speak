@@ -1,25 +1,27 @@
 #!/usr/bin/env node
 /**
- * Verification for LetJevSpeak. Three checks, because every assumption in this
- * project so far has broken on contact with the API:
+ * Live evaluation for LetJevSpeak. Two measurements, because every assumption
+ * in this project so far has broken on contact with the API:
  *
  *   1. routing   — does the model put questions in the right pack?
  *   2. benefit   — does routing beat a general vocabulary, and does a
  *                  deliberately wrong pack actually hurt? If routed ≈ general
  *                  the routing call is not earning its cost.
- *   3. coverage  — does each pack contain the words its answers need?
  *
- *   node router-eval.js              # all three
+ * Both measure live behaviour against the API and cost real calls, so they are
+ * an eval tool rather than a test. Vocabulary coverage moved to the unit suite
+ * (test/vocabs.test.js), where it runs offline on every commit.
+ *
+ *   node router-eval.js              # both
  *   node router-eval.js --routing
  *   node router-eval.js --benefit
- *   node router-eval.js --coverage   # local, no API calls
  */
 
 import { LetJevSpeak } from './LetJevSpeak.js';
 import { CORE, DOMAINS } from './vocabs.js';
 
 const argv = process.argv.slice(2);
-const runAll = !argv.some((a) => ['--routing', '--benefit', '--coverage'].includes(a));
+const runAll = !argv.some((a) => ['--routing', '--benefit'].includes(a));
 const want = (n) => runAll || argv.includes(`--${n}`);
 
 // ── 1. routing accuracy ──────────────────────────────────────────────────
@@ -191,53 +193,4 @@ if (want('benefit')) {
     `general=${mean((r) => r.jg).toFixed(2)}  wrong=${mean((r) => r.jb).toFixed(2)}   (0-2)`);
   const correct = rows.filter((r) => r.routed.domains.includes(r.right)).length;
   console.log(`   routed to the expected pack: ${correct}/${rows.length}\n`);
-}
-
-// ────────────────────────────────────────────────────────────── 3. coverage
-if (want('coverage')) {
-  console.log('3. COVERAGE — words each pack needs in order to answer its own questions\n');
-
-  const NEEDED = {
-    food: ['bread', 'bun', 'meat', 'eat', 'cook'],
-    science: ['light', 'scatter', 'energy', 'water', 'atmosphere'],
-    medicine: ['doctor', 'pain', 'infection', 'treat', 'fever'],
-    law: ['contract', 'court', 'rights', 'valid', 'breach'],
-    finance: ['price', 'market', 'rate', 'profit', 'invest'],
-    software: ['code', 'function', 'error', 'thread', 'data'],
-    support: ['refund', 'account', 'order', 'charge', 'ticket'],
-    emotion: ['happy', 'angry', 'feel', 'sad', 'tone'],
-    sports: ['team', 'game', 'score', 'player', 'win'],
-    travel: ['city', 'country', 'flight', 'hotel', 'distance'],
-    education: ['student', 'teacher', 'exam', 'learn', 'class'],
-    history: ['war', 'century', 'government', 'king', 'past'],
-    'art-music': ['music', 'song', 'paint', 'film', 'book'],
-    nature: ['animal', 'tree', 'sound', 'live', 'young'],
-    weather: ['rain', 'wind', 'temperature', 'cloud', 'season'],
-    technology: ['computer', 'internet', 'data', 'device', 'network'],
-    psychology: ['mind', 'feel', 'habit', 'trust', 'stress'],
-    'math-logic': ['number', 'valid', 'logic', 'prove', 'probability'],
-    shopping: ['product', 'price', 'review', 'buy', 'quality'],
-    general: ['thing', 'people', 'reason', 'know', 'time'],
-    ai: ['model', 'training', 'neural', 'prompt', 'accuracy'],
-    database: ['query', 'table', 'index', 'join', 'transaction'],
-    devops: ['deploy', 'server', 'container', 'pipeline', 'scale'],
-    security: ['password', 'encrypt', 'vulnerability', 'attack', 'access'],
-    networking: ['protocol', 'request', 'latency', 'packet', 'dns'],
-    webdev: ['browser', 'page', 'css', 'render', 'button'],
-    'data-analytics': ['metric', 'average', 'trend', 'report', 'sample'],
-    twitter: ['tweet', 'reply', 'follower', 'viral', 'hashtag'],
-  };
-
-  let gaps = 0;
-  for (const [domain, needed] of Object.entries(NEEDED)) {
-    const have = new Set([...DOMAINS[domain].words, ...CORE]);
-    const missing = needed.filter((w) => !have.has(w));
-    if (missing.length) {
-      gaps += missing.length;
-      console.log(`   ${domain.padEnd(12)} MISSING: ${missing.join(', ')}`);
-    }
-  }
-  console.log(gaps === 0
-    ? '   all packs contain their expected answer words'
-    : `\n   ${gaps} missing word(s) — a word absent from the pack can never be emitted`);
 }
