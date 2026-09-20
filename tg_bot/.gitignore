@@ -1,0 +1,5 @@
+.tgcloud/
+node_modules/
+
+# vendored from the root library — regenerate with `npm run sync`
+# (kept in git so the deploy is reproducible without the parent present)

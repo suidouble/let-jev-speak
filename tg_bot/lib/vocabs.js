@@ -1,3 +1,5 @@
+// VENDORED — do not edit. Generated from ../../vocabs.js by
+// scripts/sync-lib.mjs. Run `npm run sync` after changing the root library.
 /**
  * Vocabulary packs for the word-level decoder.
  *
