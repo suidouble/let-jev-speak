@@ -1,0 +1,27 @@
+{
+  "name": "let-jev-speak",
+  "version": "0.1.0",
+  "description": "Coax free-text answers out of TypeSafe's classification API by decoding one word at a time",
+  "type": "module",
+  "main": "LetJevSpeak.js",
+  "exports": {
+    ".": "./LetJevSpeak.js",
+    "./client": "./typesafe.js",
+    "./decoder": "./decoder.js",
+    "./vocabs": "./vocabs.js"
+  },
+  "bin": {
+    "let-jev-speak": "./ask.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "ask": "node ask.js",
+    "test": "node test.js",
+    "test:dry": "node test.js --dry",
+    "eval": "node router-eval.js",
+    "eval:routing": "node router-eval.js --routing",
+    "eval:coverage": "node router-eval.js --coverage"
+  }
+}
