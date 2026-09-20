@@ -19,6 +19,10 @@ vocab:   199 words → 207 options
 cost:    14 calls (1 route + 3 prior + 10 decode)
 ```
 
+**Try it: [t.me/let_jev_speak_bot](https://t.me/let_jev_speak_bot)** — send it a
+question and watch the answer assemble itself one word at a time. Built on
+Telegram's serverless platform; source in [`tg_bot/`](tg_bot/).
+
 The model picks its own vocabulary: one `choice` call routes the question to one
 of 28 domain packs, and the decode runs over that pack's words. Routing scores
 **60/60** on a labelled set, and roughly doubles answer quality versus a generic
