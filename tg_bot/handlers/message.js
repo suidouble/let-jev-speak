@@ -10,22 +10,26 @@ import { api } from 'sdk';
 import { createSpeaker, answerQuestion, MAX_WORDS } from 'lib/answer';
 import { DraftStream } from 'lib/streamer';
 import { getConfig, setConfig, takeQuota } from 'lib/store';
+import { DOMAIN_KEYS } from 'lib/vocabs';
 
-const START = `I answer questions one word at a time.
+const START = `An experiment: forcing Jev, a model that can't speak, to speak anyway.
 
-Under the hood there is no language model writing sentences — just a
-classifier being asked "what is the next word?" over and over, from a
-vocabulary picked to match your question. You will see the answer assemble
-itself live.
+Jev is a classifier — it only ever returns a label and a probability, never a
+sentence. This bot asks it "what is the next word?" over and over, so you can
+watch an answer assemble itself one word at a time.
 
-The answers are short and often ungrammatical. That is the point: this is a
-classifier being made to talk.
+The answers are short and often ungrammatical. That is the point.
 
-Just send me a question. /domains lists the vocabularies.`;
+Just send me a question. /domains lists the vocabularies.
 
+Source: https://github.com/jeka-kiselyov/let-jev-speak`;
+
+// The count comes from the vocabularies themselves — a literal here would go
+// stale the moment a pack is added. Read from lib/vocabs rather than from a
+// LetJevSpeak instance, so /help still works before the API key is set.
 const HELP = `Send any question and I will answer it in ${MAX_WORDS} words or fewer.
 
-/domains  the ${28} vocabularies I can draw on
+/domains  the ${DOMAIN_KEYS.length} vocabularies I can draw on
 /help     this message
 
 Each answer costs about ${MAX_WORDS + 1} API calls, so there is a limit of
