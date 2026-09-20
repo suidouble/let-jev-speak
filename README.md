@@ -185,6 +185,30 @@ Words may be an array or a whitespace-separated string. Words already in `CORE`
 and repeats are dropped automatically, since each would waste one of the 255
 option slots; `most_people` expands to the two-word entry `most people`.
 
+#### What is validated
+
+Each word ends up inside an option description — `The next word is "<word>"` —
+and in the rendered answer, so `addDomain` rejects anything that would corrupt
+either, naming every offender:
+
+| Rejected | Why |
+|---|---|
+| `he said "hi"` | A double quote nests inside the description and makes it ambiguous |
+| `line1\nline2` | Control characters break the instructions' structure |
+| `.` `,` `?` | Bare punctuation collides with the decoder's own punctuation options |
+| 41+ characters | Bloats all ~10 decode calls (`MAX_WORD_LENGTH` is 40) |
+
+Accents, emoji, apostrophes, hyphens and multi-word entries are all fine.
+
+Oversized packs cannot breach the API ceiling — assembly truncates them, and
+this is asserted for a 5000-word pack and for a blend of two. You get a
+`LetJevSpeakVocabularyWarning` when it happens, and `domains` reports it:
+
+```js
+jev.domains.find(d => d.key === 'big');
+// { size: 200, usable: 145, truncated: true, ... }
+```
+
 Packs are **per-instance** — `addDomain` never mutates the shared module
 registry or another instance, so one `LetJevSpeak` cannot leak vocabulary into
 the next.
@@ -207,7 +231,7 @@ Unit tests use the built-in `node:test` runner — no dependencies. They stub
 `fetch`, so they are offline and deterministic.
 
 ```bash
-npm test                 # 174 unit tests, no network
+npm test                 # 191 unit tests, no network
 npm run test:watch       # re-run on change
 npm run test:integration  # live API, needs TYPESAFE_API_KEY (skips without it)
 ```
@@ -219,6 +243,7 @@ npm run test:integration  # live API, needs TYPESAFE_API_KEY (skips without it)
 | `test/vocabs.test.js` | Pack invariants, budget limits, and that each pack can say its own words |
 | `test/letjevspeak.test.js` | Credentials, getters, vocabulary assembly, routing, prior caching, accounting |
 | `test/custom-domains.test.js` | Registering, replacing and removing packs; validation; instance isolation |
+| `test/word-safety.test.js` | Word validation, oversized packs, and the option ceiling under truncation |
 | `test/integration/live.test.js` | Real API calls — shape and high-confidence judgements only |
 
 Separately, `router-eval.js` *measures* live behaviour rather than asserting on

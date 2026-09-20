@@ -14,7 +14,7 @@
 
 import { TypeSafe } from './typesafe.js';
 import { buildCriteria, measurePrior, decode, MAX_CHOICES, PUNCT } from './decoder.js';
-import { CORE, DOMAINS, DOMAIN_KEYS, DOMAIN_BUDGET } from './vocabs.js';
+import { CORE, DOMAINS, DOMAIN_KEYS, DOMAIN_BUDGET, wordProblem } from './vocabs.js';
 
 export class LetJevSpeak {
   #client;
@@ -105,6 +105,9 @@ export class LetJevSpeak {
       key,
       description: pack.description,
       size: pack.words.length,
+      // How many of those words actually survive assembly.
+      usable: Math.min(pack.words.length, DOMAIN_BUDGET),
+      truncated: pack.words.length > DOMAIN_BUDGET,
       custom: !Object.hasOwn(DOMAINS, key) || pack.description !== DOMAINS[key].description,
     }));
   }
@@ -199,8 +202,19 @@ export class LetJevSpeak {
     if (!Array.isArray(raw) || raw.length === 0) {
       throw new TypeError('LetJevSpeak.addDomain: words must be a non-empty array or string.');
     }
-    if (!raw.every((w) => typeof w === 'string' && w.trim().length > 0)) {
-      throw new TypeError('LetJevSpeak.addDomain: every word must be a non-empty string.');
+
+    // Each word ends up inside an option description and in the rendered
+    // answer, so reject anything that would corrupt either. Failing here beats
+    // a malformed prompt that merely degrades the results.
+    const bad = raw
+      .map((w) => [w, wordProblem(w, PUNCT)])
+      .filter(([, problem]) => problem);
+    if (bad.length) {
+      const shown = bad.slice(0, 3).map(([w, p]) => `${JSON.stringify(w)} ${p}`).join('; ');
+      throw new TypeError(
+        `LetJevSpeak.addDomain: ${bad.length} unusable word(s) in "${key}" — ${shown}` +
+        (bad.length > 3 ? `; and ${bad.length - 3} more.` : '.'),
+      );
     }
 
     // Words already in CORE, or repeated, would burn a slot out of 255 for
@@ -220,6 +234,19 @@ export class LetJevSpeak {
     if (!this.#domains.has(key) && this.#domains.size + 1 > MAX_CHOICES) {
       throw new Error(
         `LetJevSpeak.addDomain: cannot exceed ${MAX_CHOICES} domains — routing is itself a choice question.`,
+      );
+    }
+
+    // Oversized packs are allowed — assembly truncates from the tail, so the
+    // option ceiling is never breached. But silently dropping most of a
+    // caller's vocabulary is the kind of thing that wastes an afternoon, so
+    // say so once.
+    if (wordsList.length > DOMAIN_BUDGET) {
+      process.emitWarning(
+        `LetJevSpeak: pack "${key}" has ${wordsList.length} words but only ${DOMAIN_BUDGET} ` +
+        `fit alongside CORE — the last ${wordsList.length - DOMAIN_BUDGET} will never be used. ` +
+        'Order words most- to least-important.',
+        'LetJevSpeakVocabularyWarning',
       );
     }
 
