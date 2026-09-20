@@ -22,7 +22,7 @@ The answers are short and often ungrammatical. That is the point.
 
 Just send me a question. /domains lists the vocabularies.
 
-Source: https://github.com/jeka-kiselyov/let-jev-speak`;
+Source: https://github.com/suidouble/let-jev-speak`;
 
 // The count comes from the vocabularies themselves — a literal here would go
 // stale the moment a pack is added. Read from lib/vocabs rather than from a

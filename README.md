@@ -34,7 +34,7 @@ vocabulary.
 Requires Node 18+ (global `fetch`). No dependencies.
 
 ```bash
-git clone git@github.com:jeka-kiselyov/let-jev-speak.git
+git clone git@github.com:suidouble/let-jev-speak.git
 cd let-jev-speak
 ```
 
