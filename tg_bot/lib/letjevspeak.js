@@ -76,7 +76,15 @@ export class LetJevSpeak {
     }
 
     // Builds its own client so callers need nothing else to get an answer.
-    this.#client ??= new TypeSafe(key, { maxRetries: options.maxRetries ?? 3 });
+    // Client-level options are forwarded, not swallowed — `baseUrl` in
+    // particular, which a browser needs in order to route through a proxy.
+    this.#client ??= new TypeSafe(key, {
+      maxRetries: options.maxRetries ?? 3,
+      ...(options.baseUrl !== undefined && { baseUrl: options.baseUrl }),
+      ...(options.timeout !== undefined && { timeout: options.timeout }),
+      ...(options.fetch !== undefined && { fetch: options.fetch }),
+      ...(options.model !== undefined && { model: options.model }),
+    });
 
     this.max = options.max ?? 10;
     this.min = options.min ?? 5;

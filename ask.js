@@ -19,9 +19,15 @@ const flag = (n, d) => {
   return i === -1 ? d : argv[i + 1];
 };
 
+// --domains and --vocab only read local vocabularies; they make no request, so
+// they must work without credentials. `npx let-jev-speak --domains` demanding a
+// key would be a poor first impression.
+const INSPECT_ONLY = argv.includes('--domains') || flag('vocab', null) != null;
+
 let jev;
 try {
-  jev = new LetJevSpeak(flag('key', undefined), { max: Number(flag('max', 10)) });
+  const key = flag('key', undefined) ?? (INSPECT_ONLY ? 'inspect-only' : undefined);
+  jev = new LetJevSpeak(key, { max: Number(flag('max', 10)) });
 } catch (err) {
   console.error(err.message);
   process.exit(1);

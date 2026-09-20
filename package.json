@@ -2,17 +2,43 @@
   "name": "let-jev-speak",
   "version": "0.1.0",
   "description": "Coax free-text answers out of TypeSafe's classification API by decoding one word at a time",
+  "keywords": [
+    "typesafe",
+    "jev",
+    "classifier",
+    "text-generation",
+    "decoder",
+    "nlp"
+  ],
+  "homepage": "https://github.com/suidouble/let-jev-speak#readme",
+  "bugs": {
+    "url": "https://github.com/suidouble/let-jev-speak/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/suidouble/let-jev-speak.git"
+  },
+  "license": "MIT",
   "type": "module",
   "main": "LetJevSpeak.js",
   "exports": {
     ".": "./LetJevSpeak.js",
     "./client": "./typesafe.js",
     "./decoder": "./decoder.js",
-    "./vocabs": "./vocabs.js"
+    "./vocabs": "./vocabs.js",
+    "./package.json": "./package.json"
   },
   "bin": {
     "let-jev-speak": "./ask.js"
   },
+  "files": [
+    "LetJevSpeak.js",
+    "typesafe.js",
+    "decoder.js",
+    "vocabs.js",
+    "ask.js",
+    "FINDINGS.md"
+  ],
   "engines": {
     "node": ">=18"
   },
@@ -23,7 +49,7 @@
     "test:integration": "node --test test/integration/*.test.js",
     "eval": "node router-eval.js",
     "eval:routing": "node router-eval.js --routing",
-    "eval:benefit": "node router-eval.js --benefit"
-  },
-  "license": "MIT"
+    "eval:benefit": "node router-eval.js --benefit",
+    "prepublishOnly": "npm test"
+  }
 }

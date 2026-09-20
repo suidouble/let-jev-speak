@@ -40,7 +40,12 @@ export class TypeSafe {
     this.model = options.model ?? 'jev-latest';
     this.timeout = options.timeout ?? 60_000;
     this.maxRetries = options.maxRetries ?? 2;
-    this.fetch = options.fetch ?? globalThis.fetch;
+
+    // Bound to globalThis: stored on the instance, `this.fetch(...)` would
+    // otherwise call native fetch with the client as its receiver, which
+    // browsers reject with "Illegal invocation". Node does not care.
+    const impl = options.fetch ?? globalThis.fetch;
+    this.fetch = typeof impl === 'function' ? impl.bind(globalThis) : impl;
   }
 
   // ---------------------------------------------------------------- core

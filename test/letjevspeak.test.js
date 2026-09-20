@@ -308,3 +308,51 @@ describe('answer', () => {
     assert.match(decodeBody.questions.next_word.instructions, /^BE BRIEF/);
   });
 });
+
+describe('client options are forwarded, not swallowed', () => {
+  // Both of these were found only when the library first ran in a browser:
+  // baseUrl was dropped, so requests bypassed the dev-server proxy and were
+  // blocked by CORS; and native fetch was invoked with the client as its
+  // receiver, which browsers reject.
+
+  test('baseUrl reaches the client', () => {
+    const jev = new LetJevSpeak(KEY, { baseUrl: '/api' });
+    assert.equal(jev.client.baseUrl, '/api');
+  });
+
+  test('timeout, model and fetch reach the client', () => {
+    const fake = async () => new Response('{}');
+    const jev = new LetJevSpeak(KEY, { timeout: 1234, model: 'jev-test', fetch: fake });
+    assert.equal(jev.client.timeout, 1234);
+    assert.equal(jev.client.model, 'jev-test');
+    assert.equal(typeof jev.client.fetch, 'function');
+  });
+
+  test('defaults are untouched when nothing is passed', () => {
+    const jev = new LetJevSpeak(KEY);
+    assert.equal(jev.client.baseUrl, 'https://api.typesafe.ai');
+    assert.equal(jev.client.model, 'jev-latest');
+  });
+
+  test('a request routes through baseUrl', async () => {
+    const seen = [];
+    const fake = async (url) => {
+      seen.push(url);
+      return new Response(JSON.stringify({
+        model: 'm', answers: { result: { type: 'noul', noul: 1 } }, usage: {},
+      }), { status: 200 });
+    };
+    const jev = new LetJevSpeak(KEY, { baseUrl: '/api', fetch: fake });
+    await jev.client.noul('x', 'y');
+    assert.equal(seen[0], '/api/v1/systemone');
+  });
+
+  test('fetch is callable without the client as receiver', async () => {
+    // Native fetch throws "Illegal invocation" in a browser when called as a
+    // method. Asserting the stored reference is not bare `globalThis.fetch`.
+    const jev = new LetJevSpeak(KEY);
+    const bare = jev.client.fetch;
+    assert.doesNotThrow(() => bare, 'fetch must be detachable');
+    assert.notEqual(jev.client.fetch, globalThis.fetch, 'fetch must be bound, not the raw global');
+  });
+});
