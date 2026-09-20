@@ -142,9 +142,55 @@ Three constants matter, all tuned against the live API and explained in
 `weather` `technology` `psychology` `math-logic` `shopping` `ai` `database`
 `devops` `security` `networking` `webdev` `data-analytics` `twitter`
 
-Adding one is a `vocabs.js` entry: a contrastive description (the router picks
-on meaning) and a list of words ordered most- to least-important, since
-assembling a vocabulary truncates from the tail.
+### Custom vocabularies
+
+Register your own pack and it takes part in routing like any built-in:
+
+```js
+const jev = new LetJevSpeak(TYPESAFE_API_KEY);
+
+jev.addDomain('crypto', {
+  description: 'Cryptocurrency, blockchains, wallets, tokens, mining and exchanges',
+  words: 'bitcoin wallet token chain block mining exchange ledger cold storage seed',
+});
+
+await jev.answer('What is a hardware wallet?');
+// → { domain: 'crypto', text: 'is a secure wallet cold storage' }
+```
+
+Or declare them up front, which may override a built-in:
+
+```js
+new LetJevSpeak(TYPESAFE_API_KEY, { domains: { crypto: { description, words } } });
+```
+
+| Member | Purpose |
+|---|---|
+| `addDomain(key, pack, { replace })` | Register a pack. Throws on a name clash unless `replace: true`. Chainable. |
+| `removeDomain(key)` | Drop a pack; returns whether one was removed. `general` is protected — it is the routing fallback. |
+| `customDomainKeys` | Packs added or replaced on this instance |
+| `vocabularyFor(key)` | The exact word list a pack would decode over, `CORE` included |
+
+Two things to get right:
+
+- **The description does real work.** The router picks between packs by meaning,
+  so a vague description loses to a sharper neighbour. Make it contrastive
+  against whatever it sits next to — this is why `software` says *"writing
+  program code"* rather than *"technology"*.
+- **Order words most- to least-important.** Assembly truncates from the tail to
+  fit the per-domain budget (145 slots), so trailing words are dropped first.
+  Oversized packs are accepted and simply truncated.
+
+Words may be an array or a whitespace-separated string. Words already in `CORE`
+and repeats are dropped automatically, since each would waste one of the 255
+option slots; `most_people` expands to the two-word entry `most people`.
+
+Packs are **per-instance** — `addDomain` never mutates the shared module
+registry or another instance, so one `LetJevSpeak` cannot leak vocabulary into
+the next.
+
+To ship a pack as a built-in instead, add it to `vocabs.js` under the same two
+rules, plus a coverage expectation in `test/vocabs.test.js`.
 
 ## Limits
 
@@ -161,7 +207,7 @@ Unit tests use the built-in `node:test` runner — no dependencies. They stub
 `fetch`, so they are offline and deterministic.
 
 ```bash
-npm test                 # 142 unit tests, no network
+npm test                 # 174 unit tests, no network
 npm run test:watch       # re-run on change
 npm run test:integration  # live API, needs TYPESAFE_API_KEY (skips without it)
 ```
@@ -172,6 +218,7 @@ npm run test:integration  # live API, needs TYPESAFE_API_KEY (skips without it)
 | `test/decoder.test.js` | Option building, the 255 ceiling, rendering, prior measurement, decode guards |
 | `test/vocabs.test.js` | Pack invariants, budget limits, and that each pack can say its own words |
 | `test/letjevspeak.test.js` | Credentials, getters, vocabulary assembly, routing, prior caching, accounting |
+| `test/custom-domains.test.js` | Registering, replacing and removing packs; validation; instance isolation |
 | `test/integration/live.test.js` | Real API calls — shape and high-confidence judgements only |
 
 Separately, `router-eval.js` *measures* live behaviour rather than asserting on

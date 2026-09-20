@@ -18,6 +18,7 @@ import { CORE, DOMAINS, DOMAIN_KEYS, DOMAIN_BUDGET } from './vocabs.js';
 
 export class LetJevSpeak {
   #client;
+  #domains;
   #priorCache = new Map();
   #stats = { calls: 0, routeCalls: 0, priorCalls: 0, decodeCalls: 0, inputTokens: 0, outputTokens: 0, answers: 0 };
 
@@ -41,6 +42,8 @@ export class LetJevSpeak {
    * @param {number}  [options.penalty=1.5]  repetition damping
    * @param {boolean} [options.blend=true]   mix the top two domains when routing is close
    * @param {'vocab'|'question'} [options.priorMode='vocab']  prior cache granularity
+   * @param {Record<string, {description: string, words: string[]|string}>} [options.domains]
+   *   Extra vocabulary packs, merged over the built-ins for this instance only.
    */
   constructor(apiKeyOrClient, options = {}) {
     let key = apiKeyOrClient;
@@ -79,6 +82,16 @@ export class LetJevSpeak {
     this.penalty = options.penalty ?? 1.5;
     this.blend = options.blend ?? true;
     this.priorMode = options.priorMode ?? 'vocab';
+
+    // A per-instance copy, so adding a pack here never leaks into the shared
+    // module object or into another instance.
+    this.#domains = new Map(
+      DOMAIN_KEYS.map((k) => [k, { description: DOMAINS[k].description, words: [...DOMAINS[k].words] }]),
+    );
+
+    for (const [key, pack] of Object.entries(options.domains ?? {})) {
+      this.addDomain(key, pack, { replace: true });
+    }
   }
 
   // ─────────────────────────────────────────────────────────────── getters
@@ -86,17 +99,23 @@ export class LetJevSpeak {
   /** The underlying API client, for raw choice/score/noul calls. */
   get client() { return this.#client; }
 
-  /** Every pack: key, description and word count. */
+  /** Every pack: key, description, word count, and whether it is custom. */
   get domains() {
-    return DOMAIN_KEYS.map((k) => ({
-      key: k,
-      description: DOMAINS[k].description,
-      size: DOMAINS[k].words.length,
+    return [...this.#domains.entries()].map(([key, pack]) => ({
+      key,
+      description: pack.description,
+      size: pack.words.length,
+      custom: !Object.hasOwn(DOMAINS, key) || pack.description !== DOMAINS[key].description,
     }));
   }
 
   /** Just the pack names. */
-  get domainKeys() { return [...DOMAIN_KEYS]; }
+  get domainKeys() { return [...this.#domains.keys()]; }
+
+  /** Only the packs added or replaced on this instance. */
+  get customDomainKeys() {
+    return this.domains.filter((d) => d.custom).map((d) => d.key);
+  }
 
   /** Shared function words present in every assembled vocabulary. */
   get core() { return [...CORE]; }
@@ -125,12 +144,105 @@ export class LetJevSpeak {
   // ─────────────────────────────────────────────────────────────── methods
 
   /** Is this a known pack? */
-  has(domain) { return Object.hasOwn(DOMAINS, domain); }
+  has(domain) { return this.#domains.has(domain); }
 
   /** The full word list that would be used for a domain, CORE included. */
   vocabularyFor(domain) {
     if (!this.has(domain)) throw new Error(`Unknown domain: ${domain}`);
     return this.#assemble([domain]);
+  }
+
+  /**
+   * Register a vocabulary pack on this instance. It takes part in routing like
+   * any built-in, so the description carries real weight — the router picks on
+   * meaning, and a vague description will lose to a sharper neighbour.
+   *
+   *   jev.addDomain('crypto', {
+   *     description: 'Cryptocurrency, blockchains, wallets, tokens and trading',
+   *     words: 'bitcoin wallet token chain block mining exchange ...',
+   *   });
+   *
+   * Words may be an array or a whitespace-separated string, and should be
+   * ordered most- to least-important: assembly truncates from the tail to fit
+   * the per-domain budget, so trailing words are the first to be dropped.
+   *
+   * @param {string} key
+   * @param {{description: string, words: string[]|string}} pack
+   * @param {object}  [opts]
+   * @param {boolean} [opts.replace=false]  overwrite an existing pack of the same name
+   * @returns {this}  for chaining
+   */
+  addDomain(key, pack, { replace = false } = {}) {
+    if (typeof key !== 'string' || !/^[\w-]+$/.test(key)) {
+      throw new TypeError(
+        `LetJevSpeak.addDomain: key must be a non-empty string of letters, digits, _ or - — got ${JSON.stringify(key)}.`,
+      );
+    }
+    if (!replace && this.#domains.has(key)) {
+      throw new Error(
+        `LetJevSpeak.addDomain: "${key}" already exists. Pass { replace: true } to overwrite it.`,
+      );
+    }
+    if (!pack || typeof pack !== 'object') {
+      throw new TypeError('LetJevSpeak.addDomain: pack must be { description, words }.');
+    }
+
+    const { description } = pack;
+    if (typeof description !== 'string' || description.trim().length < 10) {
+      throw new TypeError(
+        'LetJevSpeak.addDomain: description must be a sentence of at least 10 characters — ' +
+        'the router chooses between packs by meaning.',
+      );
+    }
+
+    const raw = typeof pack.words === 'string' ? pack.words.trim().split(/\s+/) : pack.words;
+    if (!Array.isArray(raw) || raw.length === 0) {
+      throw new TypeError('LetJevSpeak.addDomain: words must be a non-empty array or string.');
+    }
+    if (!raw.every((w) => typeof w === 'string' && w.trim().length > 0)) {
+      throw new TypeError('LetJevSpeak.addDomain: every word must be a non-empty string.');
+    }
+
+    // Words already in CORE, or repeated, would burn a slot out of 255 for
+    // nothing. Order is preserved, since assembly truncates from the tail.
+    const seen = new Set(CORE);
+    const wordsList = raw
+      .map((w) => w.trim().replace(/_/g, ' '))
+      .filter((w) => !seen.has(w) && seen.add(w));
+
+    if (wordsList.length === 0) {
+      throw new Error(
+        `LetJevSpeak.addDomain: "${key}" adds nothing — every word is already in CORE.`,
+      );
+    }
+
+    // Routing offers one option per domain, and that is a choice question too.
+    if (!this.#domains.has(key) && this.#domains.size + 1 > MAX_CHOICES) {
+      throw new Error(
+        `LetJevSpeak.addDomain: cannot exceed ${MAX_CHOICES} domains — routing is itself a choice question.`,
+      );
+    }
+
+    this.#domains.set(key, { description: description.trim(), words: wordsList });
+
+    // A changed pack invalidates any prior measured against it.
+    this.#priorCache.clear();
+    return this;
+  }
+
+  /**
+   * Drop a pack from this instance. `general` cannot be removed — buildVocab
+   * falls back to it when routing finds no clear winner.
+   *
+   * @returns {boolean} whether a pack was actually removed
+   */
+  removeDomain(key) {
+    if (key === 'general') {
+      throw new Error('LetJevSpeak.removeDomain: "general" is the routing fallback and cannot be removed.');
+    }
+    const removed = this.#domains.delete(key);
+    if (removed) this.#priorCache.clear();
+    return removed;
   }
 
   /** Drop cached priors — call after changing alpha or the packs. */
@@ -150,7 +262,7 @@ export class LetJevSpeak {
    */
   async route(question) {
     const criteria = Object.fromEntries(
-      DOMAIN_KEYS.map((k) => [k, DOMAINS[k].description]),
+      [...this.#domains.entries()].map(([k, pack]) => [k, pack.description]),
     );
     const r = await this.#client.choice(
       question,
@@ -265,7 +377,7 @@ export class LetJevSpeak {
     keys.forEach((k, i) => {
       const slots = Math.floor(DOMAIN_BUDGET * (split[i] ?? 0));
       let taken = 0;
-      for (const w of DOMAINS[k].words) {
+      for (const w of this.#domains.get(k).words) {
         if (taken >= slots) break;
         if (seen.has(w)) continue;
         seen.add(w);
