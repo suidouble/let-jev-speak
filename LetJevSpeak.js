@@ -22,10 +22,19 @@ export class LetJevSpeak {
   #stats = { calls: 0, routeCalls: 0, priorCalls: 0, decodeCalls: 0, inputTokens: 0, outputTokens: 0, answers: 0 };
 
   /**
+   * Four ways to supply credentials, in order of precedence:
+   *
+   *   new LetJevSpeak('tsk-...')                  a TYPESAFE_API_KEY string
+   *   new LetJevSpeak({ apiKey: 'tsk-...' })      the same, as an option
+   *   new LetJevSpeak(existingTypeSafeClient)     an already-configured client
+   *   new LetJevSpeak()                           falls back to process.env
+   *
    * @param {string|TypeSafe|object} [apiKeyOrClient]
-   *   An API key, an existing TypeSafe client, or an options object. Omit it
-   *   entirely to read TYPESAFE_API_KEY from the environment.
+   *   A TYPESAFE_API_KEY, an existing TypeSafe client, or an options object.
+   *   Omit it entirely to read TYPESAFE_API_KEY from the environment.
    * @param {object}  [options]
+   * @param {string}  [options.apiKey]       TYPESAFE_API_KEY, if not passed positionally
+   * @param {number}  [options.maxRetries=3] retries on 429/5xx/network errors
    * @param {number}  [options.max=10]       maximum words per answer
    * @param {number}  [options.min=5]        suppress "end" below this length
    * @param {number}  [options.alpha=0.45]   how much per-option prior to remove
@@ -40,14 +49,29 @@ export class LetJevSpeak {
       this.#client = apiKeyOrClient;
       key = null;
     } else if (apiKeyOrClient && typeof apiKeyOrClient === 'object') {
-      options = apiKeyOrClient;
+      // An options object in the first position; a second argument, if any,
+      // still wins for the decode settings.
+      options = { ...apiKeyOrClient, ...options };
       key = options.apiKey;
+    } else if (apiKeyOrClient !== undefined && typeof apiKeyOrClient !== 'string') {
+      throw new TypeError(
+        'LetJevSpeak: first argument must be an API key string, a TypeSafe client, ' +
+        `or an options object — got ${typeof apiKeyOrClient}.`,
+      );
+    }
+
+    key ??= options.apiKey ?? process.env.TYPESAFE_API_KEY;
+
+    if (!this.#client && !key) {
+      throw new Error(
+        'LetJevSpeak: no TypeSafe API key. Pass one as new LetJevSpeak(apiKey), ' +
+        'as new LetJevSpeak({ apiKey }), or set TYPESAFE_API_KEY in the environment. ' +
+        'Keys: https://console.typesafe.ai/keys',
+      );
     }
 
     // Builds its own client so callers need nothing else to get an answer.
-    this.#client ??= new TypeSafe(key ?? process.env.TYPESAFE_API_KEY, {
-      maxRetries: options.maxRetries ?? 3,
-    });
+    this.#client ??= new TypeSafe(key, { maxRetries: options.maxRetries ?? 3 });
 
     this.max = options.max ?? 10;
     this.min = options.min ?? 5;

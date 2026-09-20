@@ -7,6 +7,8 @@
  *   node ask.js "What is a bond?" --domain finance   # skip routing
  *   node ask.js --domains                            # list the packs
  *   node ask.js --vocab nature                       # show a pack's word list
+ *
+ * Reads TYPESAFE_API_KEY from the environment, or takes --key.
  */
 
 import { LetJevSpeak } from './LetJevSpeak.js';
@@ -17,12 +19,13 @@ const flag = (n, d) => {
   return i === -1 ? d : argv[i + 1];
 };
 
-if (!process.env.TYPESAFE_API_KEY) {
-  console.error('Set TYPESAFE_API_KEY first.');
+let jev;
+try {
+  jev = new LetJevSpeak(flag('key', undefined), { max: Number(flag('max', 10)) });
+} catch (err) {
+  console.error(err.message);
   process.exit(1);
 }
-
-const jev = new LetJevSpeak({ max: Number(flag('max', 10)) });
 
 if (argv.includes('--domains')) {
   for (const d of jev.domains) {
@@ -46,7 +49,7 @@ if (showVocab) {
 }
 
 const flagArgs = new Set();
-for (const n of ['max', 'domain', 'vocab']) {
+for (const n of ['max', 'domain', 'vocab', 'key']) {
   const i = argv.indexOf(`--${n}`);
   if (i !== -1) flagArgs.add(argv[i + 1]);
 }

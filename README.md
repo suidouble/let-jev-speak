@@ -36,15 +36,16 @@ Requires Node 18+ (global `fetch`). No dependencies.
 ```bash
 git clone git@github.com:jeka-kiselyov/let-jev-speak.git
 cd let-jev-speak
-export TYPESAFE_API_KEY=your-key-here   # https://console.typesafe.ai/keys
 ```
+
+Get a key from [console.typesafe.ai/keys](https://console.typesafe.ai/keys).
 
 ## Use
 
 ```js
 import { LetJevSpeak } from 'let-jev-speak';
 
-const jev = new LetJevSpeak();               // reads TYPESAFE_API_KEY
+const jev = new LetJevSpeak(TYPESAFE_API_KEY);
 const r = await jev.answer('Why do cats purr?');
 
 r.text;      // "because happy are cats so purr."
@@ -53,19 +54,48 @@ r.routing;   // { choice, probabilities, confidence, top }
 jev.stats;   // { calls, routeCalls, priorCalls, decodeCalls, inputTokens, ... }
 ```
 
-The constructor also takes a key, an options object, or an existing client:
+### Credentials
+
+Four ways to supply the key, in order of precedence:
 
 ```js
-new LetJevSpeak('sk-...');
-new LetJevSpeak({ apiKey, max: 12, alpha: 0.45, penalty: 1.5, blend: true });
-new LetJevSpeak(existingTypeSafeClient);
+new LetJevSpeak(TYPESAFE_API_KEY);                    // a key string
+new LetJevSpeak({ apiKey: TYPESAFE_API_KEY });        // the same, as an option
+new LetJevSpeak(existingTypeSafeClient);              // a configured client
+new LetJevSpeak();                                    // process.env.TYPESAFE_API_KEY
 ```
+
+A key passed explicitly always beats the environment. With neither, the
+constructor throws immediately rather than failing on the first request.
+
+### Options
+
+Passed as the second argument, or alongside `apiKey` in the first:
+
+```js
+new LetJevSpeak(TYPESAFE_API_KEY, { max: 12, alpha: 0.45 });
+new LetJevSpeak({ apiKey: TYPESAFE_API_KEY, max: 12, alpha: 0.45 });
+```
+
+| Option | Default | Meaning |
+|---|---|---|
+| `apiKey` | `process.env.TYPESAFE_API_KEY` | TypeSafe API key |
+| `max` | `10` | Maximum words per answer |
+| `min` | `5` | Suppress `end` below this length |
+| `alpha` | `0.45` | How much of the per-option prior to divide out |
+| `penalty` | `1.5` | Repetition damping |
+| `blend` | `true` | Mix the top two domains when routing is close |
+| `priorMode` | `'vocab'` | Cache priors per vocabulary, or per `'question'` |
+| `maxRetries` | `3` | Retries on 429/5xx/network errors |
 
 ### CLI
 
 ```bash
+export TYPESAFE_API_KEY=your-key-here            # or pass --key
+
 node ask.js "Should I add an index to this column?"
 node ask.js "What is a bond?" --domain finance   # skip routing
+node ask.js "Why is the sky blue?" --key tsk-... # explicit key
 node ask.js --domains                            # list the packs
 node ask.js --vocab twitter                      # dump a pack's word list
 ```
@@ -78,7 +108,7 @@ for if you want answers rather than prose:
 ```js
 import { TypeSafe } from 'let-jev-speak/client';
 
-const ts = new TypeSafe();
+const ts = new TypeSafe(TYPESAFE_API_KEY);   // or omit to read the environment
 await ts.choice(text, 'Which team should handle this?', {
   billing: 'Payment or subscription issues',
   technical: 'Bugs or integration problems',
